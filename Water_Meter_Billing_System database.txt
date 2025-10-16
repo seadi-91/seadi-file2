@@ -1,0 +1,276 @@
+----Water Meter Billing System
+
+CREATE TABLE departement (
+depid int primary key,
+depname varchar(30) not null
+);
+
+INSERT INTOdepartement values(1,'cashier');
+INSERT INTO departement values(2,'management');
+INSERT INTO departement values(3,'counter');
+INSERT INTO departement values(4,'technician');
+
+select *from departement
+
+CREATE TABLE employee(
+empid int primary key,
+empname varchar(30) not null,
+sallary decimal(10,2) not null,
+gender  varchar(10) check(gender in('male','female')),
+depid int not null,
+email varchar(50) unique,
+constraint fk_emp_dept foreign key(depid)references departement(depid));
+
+INSERT INTO employee values(1,'sada',13300.00,'female',1,'sada@watercompany.com');
+INSERT INTO employee values(2,'bezawit',14300.00,'female',2,'bez@watercompany.com');
+INSERT INTO employee values(3,'kalkidan',15300.00,'female',3,'kal@watercompany.com');
+INSERT INTO employee values(4,'bezawit',12300.00,'female',4,'beza@watercompany.com');
+INSERT INTO employee values(5,'ermiyas',10300.00,'male',2,'ermi@watercompany.com');
+
+select *from employee
+select d.depname,count(empid)as staff_count,sum(e.sallary)as total_salary
+from departement d join employee e on d.depid=e.depid group by d.depid,d.depname;
+ALTER TABLE employee ADD date_of_birth DATE;
+
+UPDATE employee SET date_of_birth=TO_DATE('1992-02-08','YYYY-MM-DD')
+WHERE empid=1;
+
+UPDATE employee SET date_of_birth=TO_DATE('1991-02-01','YYYY-MM-DD')
+WHERE empid=2;
+
+UPDATE employee SET date_of_birth=TO_DATE('1993-02-08','YYYY-MM-DD')
+WHERE empid=3;
+
+UPDATE employee SET date_of_birth=TO_DATE('1990-03-07','YYYY-MM-DD')
+WHERE empid=4;
+
+UPDATE employee SET date_of_birth=TO_DATE('1992-12-08','YYYY-MM-DD')
+WHERE empid=5;
+
+INSERT INTO employee (empid, empname, sallary, gender, depid, email, hire_date)
+VALUES (6, 'Eden', 10360.00, 'female', 4, 'eden@watercompany.com', TO_DATE('2025-06-16', 'YYYY-MM-DD'));
+
+UPDATE employee SET date_of_birth =TO_DATE('1997-11-17','YYYY-MM-DD')
+WHERE empid=1;
+UPDATE employee SET date_of_birth =TO_DATE('1996-11-18','YYYY-MM-DD')
+WHERE empid=3;
+ALTER TABLE employee DROP COLUMN date_of_birth;
+SELECT SUM(sallary) AS total_sallary FROM employee;
+CREATE OR REPLACE FUNCTION get_total_sallary RETURN NUMBER is total NUMBER;
+BEGIN SELECT SUM(sallary)INTO total FROM employee;
+RETURN total;
+END;
+
+SELECT COUNT(*)AS total_employees FROM employee;
+
+CREATE TABLE customer (
+    custid NUMBER PRIMARY KEY,
+    custname VARCHAR2(30) NOT NULL,
+    kebele NUMBER NOT NULL,
+    phoneNo VARCHAR2(15) NOT NULL UNIQUE,
+    address VARCHAR2(50),
+    registration_date DATE DEFAULT CURRENT_DATE,
+    activity_status NUMBER(1) DEFAULT 1, -- Corrected from BOOLEAN
+    CONSTRAINT chk_phone CHECK (LENGTH(phoneNo) >= 10)
+);
+
+
+INSERT INTO customer (custid,custname,kebele,phoneNo,address)
+ values(1,'meron',2,'0938984567','gondar piasa');
+
+
+INSERT INTO customer (custid,custname,kebele,phoneNo,address)
+ values(2,'lidya',3,'0938474567','gondar piasa');
+
+
+INSERT INTO customer (custid,custname,kebele,phoneNo,address)
+ values(3,'alemu',2,'0989984567','gondar arada');
+
+INSERT INTO customer (custid,custname,kebele,phoneNo,address)
+ values(4,'anteneh',4,'0938584567','gondar maraki');
+
+select *from customer
+
+UPDATE customer SET phoneNo='0981726354'
+WHERE custid=2;
+//
+UPDATE customer SET custname='Meron Kifle'
+WHERE custid =1;
+
+SELECT COUNT(*)AS total_customers FROM customer;
+
+
+INSERT INTO customer (custid,custname,kebele,phoneNo,address)
+ values(8,'Hermela',3,'0908474567','gondar maraki');
+
+CREATE TABLE waterMeter(
+    wamid INT PRIMARY KEY,
+    wat_type VARCHAR(30) NOT NULL CHECK (wat_type IN ('residential', 'commercial', 'governmental', 'industrial')),
+    serial_No VARCHAR(20) UNIQUE NOT NULL,
+    custid INT NOT NULL,
+    active CHAR(1) DEFAULT 'Y' CHECK (active IN ('Y','N')),
+    meter_size VARCHAR(15) CHECK (meter_size IN ('small','medium','large')),
+    CONSTRAINT fk_wmt_customer FOREIGN KEY(custid) REFERENCES customer(custid)
+);
+
+INSERT INTO waterMeter(wamid,wat_type,serial_No,custid,meter_size)
+VALUES(1,'residential','WM-RES-1001',1,'small');
+
+
+INSERT INTO waterMeter(wamid,wat_type,serial_No,custid,meter_size)
+VALUES(2,'residential','WM-RES-1002',2,'small');
+
+
+INSERT INTO waterMeter(wamid,wat_type,serial_No,custid,meter_size)
+VALUES(3,'commercial','WM-COM-2001',3,'medium');
+
+
+INSERT INTO waterMeter(wamid,wat_type,serial_No,custid,meter_size)
+VALUES(4,'industrial','WM-END-3001',4,'large');
+
+INSERT INTO waterMeter(wamid,wat_type,serial_No,custid,meter_size)
+VALUES(5,'industrial','WM-END-3002',2,'large');
+
+select *from waterMeter
+
+
+DELETE FROM waterMeter where wamid=5;
+
+CREATE TABLE bill(
+    billNo INT PRIMARY KEY,
+    rate DECIMAL(10,2) NOT NULL CHECK (rate > 0),
+    consumption DECIMAL(10,2) NOT NULL CHECK (consumption >= 0),
+    amount DECIMAL(10,2) GENERATED ALWAYS AS (rate * consumption) VIRTUAL,
+    billDate DATE DEFAULT CURRENT_DATE NOT NULL,
+    due_date DATE DEFAULT (CURRENT_DATE + INTERVAL '30' DAY) NOT NULL,
+    wamid INT NOT NULL,
+    empid INT NOT NULL,
+    status VARCHAR(15) DEFAULT 'unpaid' CHECK (status IN ('paid', 'unpaid', 'overdue')),
+    CONSTRAINT fk_bill_wmeter FOREIGN KEY(wamid) REFERENCES waterMeter(wamid),
+    CONSTRAINT fk_bill_employee FOREIGN KEY(empid) REFERENCES employee(empid),
+    CONSTRAINT chk_due_date CHECK (due_date > billDate)
+);
+
+
+INSERT INTO bill(billNo,rate,consumption,wamid,empid,status)
+VALUES(1,5.50,10.00,1,1,'unpaid');
+
+INSERT INTO bill(billNo,rate,consumption,wamid,empid,status)
+VALUES(2,5.50,14.00,1,1,'unpaid');
+
+INSERT INTO bill(billNo,rate,consumption,wamid,empid,status)
+VALUES(3,10.00,20.55,2,3,'paid');
+
+INSERT INTO bill(billNo,rate,consumption,wamid,empid,status)
+VALUES(4,9.50,10.90,3,4,'overdue');
+
+select *from bill
+select *from bill where status='unpaid';
+select *from bill where status='overdue';
+
+CREATE OR REPLACE FUNCTION get_total_bill(bill_id in INT )
+RETURN NUMBER IS total NUMBER;
+BEGIN SELECT amount +tax INTO total from bill WHERE billNo=bill_id;
+RETURN total;
+END;
+
+SELECT get_total_bill (2) As total_amount FROM dual;
+
+
+UPDATE bill SET status='paid'
+WHERE billNo=4;
+
+SELECT d.depname,COUNT(e.empid) As total_employees 
+FROM  departement d JOIN employee e ON d.depid=e.depid
+GROUP BY d.depname;
+
+UPDATE bill SET status='overdue'
+WHERE billNo=2;
+
+UPDATE bill SET consumption=15.00,rate=6.00
+WHERE billNo=2;
+
+ALTER TABLE bill ADD tax DECIMAL(10,2) DEFAULT 0.00;
+
+UPDATE bill SET tax = 15.00 WHERE billNo = 2;
+
+SELECT billNo,amount,tax,(amount + tax)AS total_amount FROM bill;
+DELETE FROM bill WHERE billNo=1;
+
+SELECT SUM(amount + tax) AS total_bill_amount FROM bill;
+
+ALTER TABLE employee ADD hire_date DATE DEFAULT CURRENT_DATE;
+
+SELECT *FROM employee
+ALTER TABLE customer ADD DOB DATE;
+UPDATE CUSTOMER
+SET DOB = TO_DATE( '1995-03-14','YYYY-MM-DD')
+WHERE CUSTID = 1;
+
+UPDATE CUSTOMER
+SET DOB = TO_DATE( '1996-03-17','YYYY-MM-DD')
+WHERE CUSTID = 2;
+
+UPDATE CUSTOMER
+SET DOB = TO_DATE( '1988-02-14','YYYY-MM-DD')
+WHERE CUSTID = 3;
+
+UPDATE CUSTOMER
+SET DOB = TO_DATE( '1985-03-14','YYYY-MM-DD')
+WHERE CUSTID = 4;
+
+SELECT custid,custname,DOB FROM customer;
+SELECT *FROM customer;
+
+ALTER TABLE customer DROP COLUMN DOB;
+RENAME customer TO clients;
+ALTER TABLE employee RENAME COLUMN sallary TO salary;
+ALTER TABLE customer RENAME COLUMN DOB to date_of_birth;
+
+RENAME clients TO customer;
+UPDATE customer SET date_of_birth=TO_DATE('1996-7-23','YYYY-MM-DD')
+WHERE custid=7;
+
+insert into customer (custid,custname,kebele,phoneNo,address)
+ values(5,'almaz',2,'0900984567','gondar maraki');
+SELECT *FROM customer WHERE custid=5;
+
+ALTER TABLE employee RENAME COLUMN salary TO sallary;
+insert into customer (custid,custname,kebele,phoneNo,address)
+ values(6,'almaz',2,'0900984560','gondar maraki');
+SELECT *FROM customer WHERE custid=6;
+ROLLBACK;
+
+insert into customer (custid,custname,kebele,phoneNo,address)
+values(7,'Hawlet',3,'0900964567','gondar azezo');
+SELECT *FROM customer WHERE custid=7;
+COMMIT;
+insert into departement values(5,'customer service ');
+SELECT *FROM departement;
+ROLLBACK;
+COMMIT;
+
+DROP TABLE employee;
+
+TRUNCATE TABLE customer; 
+
+
+
+/*
+1.   Bezawit       Bekele     01106/16
+2.   Bezawit       Degu       02084/15
+3.   Ermiyas       Lakew      01774/16
+4.   Kalkidan      Ayalew     02775/16
+5.   (Sada         Murad      02912/16)
+*/
+
+
+
+
+
+
+
+
+
+
+
